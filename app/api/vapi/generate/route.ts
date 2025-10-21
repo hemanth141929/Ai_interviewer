@@ -3,7 +3,6 @@ import { generateText } from "ai";
 import { db } from "@/firebase/admin";
 
 
-console.log("API:",process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
 export async function GET(){
     return Response.json({success: true,data: "vapi generate route works!"},{status:200});

@@ -1,8 +1,12 @@
 import React from 'react'
 import Headers from '@/components/header'
 import Agent from '@/components/agent'
+// import { getCurrentUser } from '@/lib/actions/auth.action'
 
-const Interview = () => {
+
+const Interview = async() => {
+
+  // const user = await getCurrentUser();
   return (
     <>
     <Headers/>

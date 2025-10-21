@@ -1,6 +1,9 @@
+
 import type { Metadata } from "next";
 import {Bitter } from "next/font/google";
 import "./globals.css";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const bitter = Bitter({
   subsets: ["latin"],
@@ -22,6 +25,7 @@ export default function RootLayout({
       <body>
         <header/>
         {children}
+        <ToastContainer position="top-center" autoClose={3000} />
       </body>
     </html>
   );
