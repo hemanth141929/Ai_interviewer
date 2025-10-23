@@ -28,7 +28,7 @@ const [uid, setUid] = useState(null);
   return (
     <>
     <Headers/>
-    <Agent username="you" userid={uid} type="generate"/>
+    <Agent username="you" userId={uid} type="generate"/>
     </>
   )
 }
