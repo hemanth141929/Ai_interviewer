@@ -1,7 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { db } from "@/firebase/admin";
-import { use } from "react";
+import { db,auth } from "@/firebase/admin";
+
 
 
 
@@ -10,9 +10,17 @@ export async function GET(){
 }
 
 export async function POST(request: Request){
-    const{type, role, level, techstack, amount, userid} = await request.json();
+    const{type, role, level, techstack, amount} = await request.json();
 
     try {
+        const authHeader = request.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return Response.json({ error: "Missing or invalid auth token" }, { status: 401 });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const userid = decodedToken.uid;
         const {text:questions} = await generateText({
             model: google("gemini-2.0-flash-001"),
             prompt:`Prepare questions for a job interview.
