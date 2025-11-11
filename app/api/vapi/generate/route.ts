@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { db } from "@/firebase/admin";
+import { use } from "react";
 
 
 
@@ -30,7 +31,7 @@ export async function POST(request: Request){
             role,type,level,
             techstack:techstack.split(','),
             questions:JSON.parse(questions),
-            userid,
+            userId:userid,
             finalized:true,
             createdAt:new Date().toISOString(),
         }
@@ -38,6 +39,6 @@ export async function POST(request: Request){
         return Response.json({success:true},{status:200});
     } catch (error) {
         console.error("Error in vapi generate route:", error);
-        return Response.json({success: false, error: 'Internal Server Error'}, {status: 500});
+        return console.error("Error in vapi generate route:", error);
     }
 }
