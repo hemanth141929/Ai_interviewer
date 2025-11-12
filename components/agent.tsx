@@ -19,6 +19,7 @@ interface SavedMessage {
   content: string;
 }
 
+
 const Agent = ({
   userName,
   userId,
@@ -83,7 +84,8 @@ const Agent = ({
     if (type === "generate") {
       await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
         variableValues: { userid: userId },
-      });
+      })
+      console.log(userId);
     } else {
       let formattedQuestions = "";
       if (questions) formattedQuestions = questions.map((q) => `- ${q}`).join("\n");
