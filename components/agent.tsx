@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { vapi } from "@/lib/actions/vapi.sdk";
 import { interviewer } from "@/constants";
-// import { createFeedback } from "@/lib/actions/general.action";
+import { motion } from "framer-motion";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -33,7 +33,6 @@ const Agent = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastMessage, setLastMessage] = useState<string>("");
 
-  // --- VAPI Event Handlers ---
   useEffect(() => {
     const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
     const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
@@ -47,7 +46,7 @@ const Agent = ({
 
     const onSpeechStart = () => setIsSpeaking(true);
     const onSpeechEnd = () => setIsSpeaking(false);
-    const onError = (error: Error) => console.log("Error:", error);
+    const onError = (error: Error) => console.error("Error:", error);
 
     vapi.on("call-start", onCallStart);
     vapi.on("call-end", onCallEnd);
@@ -66,52 +65,28 @@ const Agent = ({
     };
   }, []);
 
-  // --- Handle new messages and call end ---
   useEffect(() => {
-    if (messages.length > 0) {
-      setLastMessage(messages[messages.length - 1].content);
-    }
+    if (messages.length > 0) setLastMessage(messages[messages.length - 1].content);
 
-    const handleGenerateFeedback = async (messages: SavedMessage[]) => {
-      console.log("handleGenerateFeedback");
-      // const { success, feedbackId: id } = await createFeedback({
-      //   interviewId: interviewId!,
-      //   userId: userId!,
-      //   transcript: messages,
-      //   feedbackId,
-      // });
-
-      // if (success && id) {
-      //   router.push(`/interview/${interviewId}/feedback`);
-      // } else {
-      //   console.log("Error saving feedback");
-      //   router.push("/");
-      // }
+    const handleGenerateFeedback = async (msgs: SavedMessage[]) => {
+      console.log("Feedback messages:", msgs);
     };
 
     if (callStatus === CallStatus.FINISHED) {
-      if (type === "generate") {
-        router.push("/");
-      } else {
-        handleGenerateFeedback(messages);
-      }
+      if (type === "generate") router.push("/");
+      else handleGenerateFeedback(messages);
     }
-  }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
+  }, [messages, callStatus, type, router]);
 
-  // --- Start & End Call ---
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
-
     if (type === "generate") {
       await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {  userid: userId },
+        variableValues: { userid: userId },
       });
     } else {
       let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions.map((q) => `- ${q}`).join("\n");
-      }
-
+      if (questions) formattedQuestions = questions.map((q) => `- ${q}`).join("\n");
       await vapi.start(interviewer, {
         variableValues: { questions: formattedQuestions },
       });
@@ -123,81 +98,114 @@ const Agent = ({
     vapi.stop();
   };
 
-  // ---------------- UI ----------------
   return (
-    <>
-      {/* AI Interviewer Card */}
-      <div className="flex justify-center items-center w-[400px] h-[300px] bg-gradient-to-r from-blue-500 to-cyan-500 border-3 border-white rounded-lg p-6 fixed top-1/2 left-1/3 transform -translate-x-1/2 -translate-y-1/2 shadow-3xl shadow-black shadow-2xl">
-        <div className="relative">
-          <Image
-            src="/agent_logo.jpg"
-            alt="AI Agent"
-            width={100}
-            height={100}
-            className="rounded-full object-cover"
-          />
-          {isSpeaking && (
-            <div className="absolute inset-0 flex justify-center items-center">
-              <span className="animate-ping absolute inline-flex h-[120px] w-[120px] rounded-full bg-white opacity-75"></span>
-              <span className="absolute inline-flex h-[120px] w-[120px] rounded-full border-2 border-white"></span>
-            </div>
-          )}
-        </div>
-        <h3 className="uppercase text-white font-semibold tracking-widest absolute bottom-5">
-          AI Interviewer
-        </h3>
-      </div>
+    <div className="relative flex flex-col justify-center items-center min-h-screen overflow-hidden bg-gradient-to-br from-black via-slate-900 to-blue-950 text-white">
+      {/* Background Glow */}
+      <motion.div
+        className="absolute w-[300px] h-[300px] rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 opacity-30 blur-3xl top-20"
+        animate={{
+          x: [0, 30, -30, 0],
+          y: [0, -30, 30, 0],
+          scale: [1, 1.1, 0.9, 1],
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
 
-      {/* User Card */}
-      <div className="flex justify-center items-center w-[400px] h-[300px] bg-gradient-to-r from-blue-500 to-cyan-500 border-3 border-white rounded-lg p-6 fixed top-1/2 left-3/4 transform -translate-x-1/2 -translate-y-1/2 shadow-3xl shadow-black shadow-2xl">
-        <div className="relative">
-          <Image
-            src="/user_logo.jpg"
-            alt="User"
-            width={100}
-            height={100}
-            className="rounded-full object-cover"
-          />
-          {isSpeaking && (
-            <div className="absolute inset-0 flex justify-center items-center">
-              <span className="animate-ping absolute inline-flex h-[120px] w-[120px] rounded-full bg-white opacity-75"></span>
-              <span className="absolute inline-flex h-[120px] w-[120px] rounded-full border-2 border-white"></span>
-            </div>
-          )}
-        </div>
-        <h3 className="uppercase text-white font-semibold tracking-widest absolute bottom-5">
-          {userName}
-        </h3>
-      </div>
-
-      {/* Last Message Display */}
-      {lastMessage && (
-        <div className="w-[800px] h-[50px] bg-opacity-50 border-3 border-white rounded-lg p-3 fixed top-3/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 shadow-3xl shadow-black shadow-2xl">
-          <p className="text-white text-center uppercase font-semibold tracking-widest">
-            {lastMessage}
-          </p>
-        </div>
-      )}
-
-      {/* End / Call Button */}
-      <div className="w-full flex justify-center">
-        {callStatus !== CallStatus.ACTIVE ? (
-          <button
-            onClick={handleCall}
-            className="bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-lg absolute bottom-10 left-1/2 transform -translate-x-1/2 hover:bg-green-500 transition cursor-pointer"
+      {/* Main Content - Centered */}
+      <div className="flex flex-col justify-center items-center gap-5 w-full h-screen">
+        {/* AI & User Row */}
+        <div className="flex justify-center items-center gap-8">
+          {/* AI Interviewer Card */}
+          <motion.div
+            className="relative flex flex-col items-center justify-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 w-[260px] h-[230px] text-center shadow-[0_0_40px_rgba(0,255,255,0.15)] hover:shadow-[0_0_60px_rgba(0,255,255,0.3)] transition-all duration-500"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9 }}
           >
-            {callStatus === CallStatus.CONNECTING ? "Connecting..." : "Start Call"}
-          </button>
-        ) : (
-          <button
-            onClick={handleDisconnect}
-            className="bg-red-600 text-white font-bold py-2 px-6 rounded-full shadow-lg absolute bottom-10 left-1/2 transform -translate-x-1/2 hover:bg-red-500 transition cursor-pointer"
+            <Image
+              src="/agent_logo.jpg"
+              alt="AI Interviewer"
+              width={80}
+              height={80}
+              className="rounded-full border-4 border-cyan-400/30 shadow-[0_0_30px_rgba(0,255,255,0.4)] object-cover"
+            />
+            {isSpeaking && (
+              <motion.span
+                className="absolute top-8 left-1/2 -translate-x-1/2 h-[100px] w-[100px] rounded-full border-4 border-cyan-300 opacity-70 animate-ping"
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.3, 0.8] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+              ></motion.span>
+            )}
+            <h3 className="mt-3 text-cyan-300 font-semibold uppercase tracking-widest text-sm">
+              AI Interviewer
+            </h3>
+            <p className="text-gray-300 text-xs mt-1">
+              {isSpeaking ? "Listening carefully..." : "Waiting for response..."}
+            </p>
+          </motion.div>
+
+          {/* User Card */}
+          <motion.div
+            className="relative flex flex-col items-center justify-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 w-[260px] h-[230px] text-center shadow-[0_0_40px_rgba(0,255,255,0.15)] hover:shadow-[0_0_60px_rgba(0,255,255,0.3)] transition-all duration-500"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
           >
-            End
-          </button>
+            <Image
+              src="/user_logo.jpg"
+              alt="User Avatar"
+              width={80}
+              height={80}
+              className="rounded-full border-4 border-blue-400/30 shadow-[0_0_25px_rgba(0,255,255,0.3)] object-cover"
+            />
+            <h3 className="mt-3 text-cyan-200 font-semibold uppercase tracking-widest text-sm">
+              {userName || "You"}
+            </h3>
+            <p className="text-gray-300 text-xs mt-1">
+              {callStatus === CallStatus.ACTIVE ? "In conversation..." : "Idle"}
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Message Box */}
+        {lastMessage && (
+          <motion.div
+            className="mt-3 w-[85%] max-w-2xl bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 shadow-xl text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <p className="text-white text-sm italic">“{lastMessage}”</p>
+          </motion.div>
         )}
+
+        {/* Control Buttons */}
+        <div className="flex gap-6 mt-3">
+          {callStatus !== CallStatus.ACTIVE ? (
+            <motion.button
+              onClick={handleCall}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative px-8 py-2 font-bold text-base rounded-full bg-gradient-to-r from-green-500 to-emerald-400 text-white shadow-[0_0_40px_rgba(0,255,150,0.3)] hover:shadow-[0_0_70px_rgba(0,255,150,0.5)] transition-all duration-500"
+            >
+              {callStatus === CallStatus.CONNECTING ? "Connecting..." : "Start"}
+              <span className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 blur-lg opacity-40 -z-10 animate-pulse"></span>
+            </motion.button>
+          ) : (
+            <motion.button
+              onClick={handleDisconnect}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative px-8 py-2 font-bold text-base rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-[0_0_40px_rgba(255,100,100,0.3)] hover:shadow-[0_0_70px_rgba(255,100,100,0.5)] transition-all duration-500"
+            >
+              End
+              <span className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 blur-lg opacity-40 -z-10 animate-pulse"></span>
+            </motion.button>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 
