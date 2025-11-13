@@ -80,20 +80,49 @@ const Agent = ({
   }, [messages, callStatus, type, router]);
 
   const handleCall = async () => {
+  try {
     setCallStatus(CallStatus.CONNECTING);
+
+    // 🔹 Case 1: Generate Mode (still the same)
     if (type === "generate") {
       await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
         variableValues: { userid: userId },
-      })
-      console.log(userId);
-    } else {
-      let formattedQuestions = "";
-      if (questions) formattedQuestions = questions.map((q) => `- ${q}`).join("\n");
-      await vapi.start(interviewer, {
-        variableValues: { questions: formattedQuestions },
       });
+      console.log("Started generate flow for user:", userId);
+      return;
     }
-  };
+
+    // 🔹 Case 2: Interview Mode (Fetch questions from Firestore)
+    // Fetch questions from your backend (which reads from Firestore)
+    const response = await fetch("/api/vapi/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userid: userId, action: "fetch" }),
+    });
+
+    const data = await response.json();
+
+    if (!data.questions || data.questions.length === 0) {
+      alert("No questions found for this user.");
+      setCallStatus(CallStatus.INACTIVE);
+      return;
+    }
+
+    // Format questions nicely for Vapi Assistant
+    const formattedQuestions = data.questions.map((q: string) => `- ${q}`).join("\n");
+
+    // 🔹 Start the call with the interviewer Assistant
+    await vapi.start(interviewer, {
+      variableValues: { questions: formattedQuestions },
+    });
+
+    console.log("Interview started with Firestore questions for user:", userId);
+  } catch (err) {
+    console.error("Error starting Vapi call:", err);
+    setCallStatus(CallStatus.INACTIVE);
+  }
+};
+;
 
   const handleDisconnect = () => {
     setCallStatus(CallStatus.FINISHED);

@@ -1,23 +1,42 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { db } from "@/firebase/admin"; // no need for auth unless you're verifying a real token
-
-export async function GET() {
-  return Response.json(
-    { success: true, data: "vapi generate route works!" },
-    { status: 200 }
-  );
-}
+import { db } from "@/firebase/admin";
 
 export async function POST(request: Request) {
   try {
-    const { type, role, level, techstack, amount, userid } = await request.json();
+    const body = await request.json();
+    const { type, role, level, techstack, amount, userid, action } = body;
 
     if (!userid) {
-      console.error("No userId received in request body");
       return Response.json({ error: "Missing userid" }, { status: 400 });
     }
 
+    // ✅ 1️⃣ FETCH mode — when Assistant wants existing questions
+   if (action === "fetch") {
+  const snapshot = await db
+    .collection("interviews")
+    .where("userid", "==", userid)
+    .where("finalized", "==", true)
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    console.log("❌ No interview found for userId:", userid);
+    return Response.json({ questions: [] }, { status: 200 });
+  }
+
+  const interview = snapshot.docs[0].data();
+  console.log("✅ Firestore query result:", interview);
+
+  const questions = interview.questions || [];
+  console.log("🧠 Extracted questions:", questions);
+
+  return Response.json({ questions }, { status: 200 });
+}
+
+
+    // ✅ 2️⃣ GENERATE mode — default behavior
     const { text: questions } = await generateText({
       model: google("gemini-2.0-flash-001"),
       prompt: `Prepare questions for a job interview.
@@ -27,10 +46,8 @@ export async function POST(request: Request) {
       The focus between behavioural and technical questions should lean towards: ${type}.
       The amount of questions required is ${amount}.
       Please return only the questions, without any additional text.
-      The questions are going to be read by a voice assistant, so do not use "/" or "*" or any other special characters.
-      Return the questions formatted like this:
-      ["question 1","question 2","question 3",...,"question n"]
-      Thank you! <3`,
+      Return questions formatted like this: ["question 1","question 2","question 3",...]
+      Thank you!`,
     });
 
     const interview = {
@@ -39,7 +56,7 @@ export async function POST(request: Request) {
       level,
       techstack: techstack.split(","),
       questions: JSON.parse(questions),
-      userId: userid, // ✅ using the userid from request body
+      userId: userid,
       finalized: true,
       createdAt: new Date().toISOString(),
     };

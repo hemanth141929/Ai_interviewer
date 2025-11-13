@@ -6,50 +6,66 @@ import { motion } from "framer-motion";
 
 const Header = () => {
   return (
-    <motion.header
-      initial={{ y: -80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-      className="fixed top-0 left-0 right-0 z-50 w-full 
-      bg-gradient-to-r from-blue-900 via-cyan-700 to-blue-900 
-      shadow-[0_0_25px_rgba(0,255,255,0.2)] border-b border-cyan-400/20"
-      style={{ minHeight: "90px" }} // 🟦 Makes the navbar taller & full
-    >
-      <nav className="w-full flex items-center justify-between px-10 py-4 max-w-[1600px] mx-auto">
-        {/* 🔹 Logo Section */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-11 h-11 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full shadow-[0_0_25px_rgba(0,255,255,0.6)] group-hover:scale-110 transition-transform duration-300" />
-          <span className="text-2xl font-extrabold tracking-wide">
-            <span className="text-cyan-300">AI</span>
-            <span className="text-white">nterview</span>
-          </span>
-        </Link>
+    <nav className="w-full fixed top-0 left-0 z-50 bg-white/10 backdrop-blur-xl border-b border-white/20 shadow-[0_0_25px_rgba(0,255,255,0.15)]">
+        <div className="max-w-7xl mx-auto flex justify-between items-center py-4 px-6">
+          {/* Logo / Brand */}
+          <motion.div
+            className="flex items-center gap-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full shadow-[0_0_25px_rgba(0,255,255,0.6)]"></div>
+            <h1 className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-400 text-lg font-bold tracking-wide">
+              AI<span className="text-white">nterview</span>
+            </h1>
+          </motion.div>
 
-        {/* 🌐 Navigation Links */}
-        <ul className="hidden md:flex space-x-12 text-[16px] font-semibold tracking-wider">
-          {[
-            { name: "Home", href: "/" },
-            { name: "About", href: "/about" },
-            { name: "Contact", href: "/contact" },
-          ].map((link) => (
-            <motion.li
-              key={link.name}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 250 }}
-            >
+          {/* Navbar Links */}
+          <motion.ul
+            className="hidden md:flex space-x-8 text-sm font-semibold tracking-wider"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.7 }}
+          >
+            <li>
               <Link
-                href={link.href}
-                className="relative text-cyan-100 hover:text-white transition-colors duration-300"
+                href="/"
+                className="text-cyan-200 hover:text-white hover:drop-shadow-[0_0_6px_rgba(0,255,255,0.9)] transition-all"
               >
-                {link.name}
-                <span className="absolute left-0 -bottom-1 w-0 h-[2px] bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300 hover:w-full"></span>
+                Home
               </Link>
-            </motion.li>
-          ))}
-        </ul>
+            </li>
+            <li>
+              <Link
+                href="/sign-in"
+                className="text-cyan-200 hover:text-white hover:drop-shadow-[0_0_6px_rgba(0,255,255,0.9)] transition-all"
+              >
+                Login
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/about"
+                className="text-cyan-200 hover:text-white hover:drop-shadow-[0_0_6px_rgba(0,255,255,0.9)] transition-all"
+              >
+                About
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/contact"
+                className="text-cyan-200 hover:text-white hover:drop-shadow-[0_0_6px_rgba(0,255,255,0.9)] transition-all"
+              >
+                Contact
+              </Link>
+            </li>
+          </motion.ul>
+
+          {/* Mobile Menu Icon */}
+          <div className="md:hidden text-cyan-300 font-bold text-xl">☰</div>
+        </div>
       </nav>
-    </motion.header>
   );
 };
 
