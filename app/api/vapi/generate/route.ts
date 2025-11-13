@@ -49,21 +49,28 @@ export async function POST(request: Request) {
       Return questions formatted like this: ["question 1","question 2","question 3",...]
       Thank you!`,
     });
-
+    const generatedQuestions = JSON.parse(questions);
     const interview = {
       role,
       type,
       level,
       techstack: techstack.split(","),
-      questions: JSON.parse(questions),
+      questions: generatedQuestions,
       userId: userid,
       finalized: true,
       createdAt: new Date().toISOString(),
     };
 
-    await db.collection("interviews").add(interview);
+    const docRef = await db.collection("interviews").add(interview);
 
-    return Response.json({ success: true }, { status: 200 });
+    // Get the unique ID from the DocumentReference
+    const interviewId = docRef.id;
+
+   return Response.json({ 
+    success: true, 
+    questions: generatedQuestions,
+    interviewId: interviewId // <--- Return the questions here!
+}, { status: 200 });
   } catch (error) {
     console.error("Error in vapi generate route:", error);
     return Response.json(
