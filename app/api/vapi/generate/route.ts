@@ -11,32 +11,37 @@ export async function POST(request: Request) {
       return Response.json({ error: "Missing userid" }, { status: 400 });
     }
 
-    // ✅ 1️⃣ FETCH mode — when Assistant wants existing questions
-   if (action === "fetch") {
-  const snapshot = await db
-    .collection("interviews")
-    .where("userid", "==", userid)
-    .where("finalized", "==", true)
-    .orderBy("createdAt", "desc")
-    .limit(1)
-    .get();
+    // ✅ 1️⃣ FETCH mode — used by the client to get questions after generation (Call 1 ends)
+    if (action === "fetch") {
+      const snapshot = await db
+        .collection("interviews")
+        .where("userid", "==", userid)
+        .where("finalized", "==", true)
+        .orderBy("createdAt", "desc")
+        .limit(1)
+        .get();
 
-  if (snapshot.empty) {
-    console.log("❌ No interview found for userId:", userid);
-    return Response.json({ questions: [] }, { status: 200 });
-  }
+      if (snapshot.empty) {
+        console.log("❌ No interview found for userId:", userid);
+        // Ensure structure matches client expectation even if empty
+        return Response.json({ questions: [], interviewId: "" }, { status: 200 }); 
+      }
 
-  const interview = snapshot.docs[0].data();
-  console.log("✅ Firestore query result:", interview);
+      const interview = snapshot.docs[0].data();
+      const interviewId = snapshot.docs[0].id; // CRITICAL FIX: Get the Firestore Document ID
+      const questions = interview.questions || [];
+      const role = interview.role || "";
+      const level = interview.level || "";
+      const techstack = interview.techstack || [];
 
-  const questions = interview.questions || [];
-  console.log("🧠 Extracted questions:", questions);
+      console.log("✅ Firestore query result:", { interviewId, questions: questions.length });
 
-  return Response.json({ questions }, { status: 200 });
-}
+      // Return both questions AND interviewId
+      return Response.json({ questions, interviewId,role,level,techstack }, { status: 200 });
+    }
 
 
-    // ✅ 2️⃣ GENERATE mode — default behavior
+    // ✅ 2️⃣ GENERATE mode — default behavior when Vapi's Generator Assistant calls this route
     const { text: questions } = await generateText({
       model: google("gemini-2.0-flash-001"),
       prompt: `Prepare questions for a job interview.
@@ -49,7 +54,16 @@ export async function POST(request: Request) {
       Return questions formatted like this: ["question 1","question 2","question 3",...]
       Thank you!`,
     });
-    const generatedQuestions = JSON.parse(questions);
+    
+    // Safety check for JSON parsing
+    let generatedQuestions = [];
+    try {
+        generatedQuestions = JSON.parse(questions);
+    } catch (e) {
+        console.error("Failed to parse AI generated questions JSON:", questions);
+        return Response.json({ error: "Invalid response from AI model" }, { status: 500 });
+    }
+
     const interview = {
       role,
       type,
@@ -62,15 +76,19 @@ export async function POST(request: Request) {
     };
 
     const docRef = await db.collection("interviews").add(interview);
-
-    // Get the unique ID from the DocumentReference
     const interviewId = docRef.id;
+    const f_role = interview.role;
+    const f_level = interview.level;
+    const f_techstack = interview.techstack;
 
-   return Response.json({ 
-    success: true, 
-    questions: generatedQuestions,
-    interviewId: interviewId // <--- Return the questions here!
-}, { status: 200 });
+    return Response.json({ 
+      success: true, 
+      questions: generatedQuestions,
+      interviewId: interviewId,
+      role: f_role,
+      level: f_level,
+      techstack: f_techstack
+    }, { status: 200 });
   } catch (error) {
     console.error("Error in vapi generate route:", error);
     return Response.json(
