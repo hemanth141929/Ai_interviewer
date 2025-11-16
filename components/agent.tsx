@@ -37,13 +37,16 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
 
   // State to manage the ID after generation for the two-call transition
   const [currentInterviewId, setCurrentInterviewId] = useState<string>('');
+  
 
   // --- Helper function for starting the Interviewer Call (Call 2) ---
-  const handleInterviewStart = useCallback(async (questions: string[], interviewId: string,role:string,level:string,techstack:string[]) => {
+  const handleInterviewStart = useCallback(async (questions: string[], interviewId: string, role: string, level: string, techstack: string[]) => {
+    // IMPORTANT: Make sure this environment variable is set in your .env file
     const Interviewer_assistant_id = process.env.NEXT_PUBLIC_VAPI_INTERVIEWER_ASSISTANT_ID!;
 
     try {
       const formattedQuestionsString = JSON.stringify(questions);
+      // Ensure techstack is an array of strings before stringifying
       const formattedtechstackstring = JSON.stringify(techstack);
       
       setCallStatus(CallStatus.CONNECTING);
@@ -58,10 +61,6 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
         }, 
       });
       console.log(`Starting Interview Call for ID: ${interviewId}`);
-      console.log(`Starting Interview Call for ID: ${formattedQuestionsString}`);
-      console.log(`Starting Interview Call for role: ${role}`);
-      console.log(`Starting Interview Call for level: ${level}`);
-      console.log(`Starting Interview Call for techstack: ${formattedtechstackstring}`);
 
     } catch (error) {
       console.error("Error starting interview call:", error);
@@ -94,37 +93,32 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
       
       // Logic for the transition from Generator (Call 1) to Interviewer (Call 2)
       if (type === "generate" && currentInterviewId === '') {
-        console.log("Generation call ended. Fetching results to start interview...");
+        console.log("Generation call ended. Fetching latest results by User ID...");
 
-        // Fetch the newly created questions and ID from your backend
         try {
+          // ✅ FETCH: Uses the POST method with 'action: "fetch"' and 'userid'
           const response = await fetch("/api/vapi/generate", {
-            method: "POST",
+            method: "POST", 
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userid: userId, action: "fetch" }), 
+            // Pass the userId and the fetch action to get the most recent interview
+            body: JSON.stringify({ action: "fetch", userid: userId }), 
           });
 
           const data = await response.json();
+          const { questions, interviewId, role, level, techstack } = data; // Destructure all fields
 
-          // Check for both questions and interviewId
-          if (data.questions?.length > 0 && data.interviewId) {
-            setCurrentInterviewId(data.interviewId);
-            await handleInterviewStart(data.questions, data.interviewId,data.role,data.level,data.techstack); // Start Call 2
+          // Check for questions and interviewId
+          if (questions?.length > 0 && interviewId) {
+            setCurrentInterviewId(interviewId);
+            await handleInterviewStart(questions, interviewId, role, level, techstack); // Start Call 2
           } else {
-            console.error("❌ Failed to retrieve generated questions/ID.");
+            console.error("❌ Failed to retrieve generated questions/ID. No recent interview found.");
             setCallStatus(CallStatus.INACTIVE); 
           }
         } catch (error) {
           console.error("Error fetching generated data:", error);
           setCallStatus(CallStatus.INACTIVE);
         }}
-      // } else if (currentInterviewId) {
-      //   // Logic for when the final Interview call (Call 2) or a non-generate call ends
-      //   setCallStatus(CallStatus.FINISHED);
-      //   // Redirect to the feedback page after the final interview ends
-      //   // NOTE: The feedback-related API call/logic is removed, only the redirect remains.
-      //   // router.push(`/feedback/${currentInterviewId}`); 
-      // }
     };
 
     vapi.on("call-start", onCallStart);
@@ -147,7 +141,10 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
   // --- Update lastMessage from the final messages list ---
   useEffect(() => {
     if (messages.length > 0) {
-      setLastMessage(messages[messages.length - 1].content);
+      const lastTranscript = messages.filter(m => m.role === 'assistant' || m.role === 'user').pop();
+      if (lastTranscript) {
+        setLastMessage(lastTranscript.content);
+      }
     }
   }, [messages]);
 
@@ -157,7 +154,7 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
       setCallStatus(CallStatus.CONNECTING);
 
       if (type === "generate") {
-        // Case 1: Start the GENERATOR Assistant (Call 1)
+        // Case 1: Start the GENERATOR Assistant (Call 1, hits the POST route)
         await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
           variableValues: { userid: userId },
         });
@@ -165,24 +162,30 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
         return;
       }
 
-      // Case 2: Fetch Mode (Load existing interview and start Call 2 directly)
-      const response = await fetch("/api/vapi/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userid: userId, action: "fetch" }),
-      });
+      // Case 2: Fetch Mode (Directly load a known interview, must have currentInterviewId set)
+      if (type === "fetch" && currentInterviewId) {
+        setCallStatus(CallStatus.CONNECTING);
+        
+        // Use the POST method with action: "fetch" and the known interview ID
+        const response = await fetch("/api/vapi/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // Note: If currentInterviewId is set, the backend will prioritize fetching by ID.
+          body: JSON.stringify({ action: "fetch", userid: userId, interviewId: currentInterviewId }), 
+        });
 
-      const data = await response.json();
-
-      if (!data.questions?.length || !data.interviewId) {
-        alert("No questions found for this user.");
-        setCallStatus(CallStatus.INACTIVE);
+        const data = await response.json();
+        
+        if (!data.questions?.length) {
+          alert("No questions found for this interview ID.");
+          setCallStatus(CallStatus.INACTIVE);
+          return;
+        }
+        
+        await handleInterviewStart(data.questions, data.interviewId, data.role, data.level, data.techstack);
         return;
       }
-      
-      // Start the interview call directly
-      setCurrentInterviewId(data.interviewId); // Set ID before starting call
-      await handleInterviewStart(data.questions, data.interviewId,data.role,data.level,data.techstack);
+
 
     } catch (err) {
       console.error("Error starting Vapi call:", err);
@@ -193,16 +196,21 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
   const handleDisconnect = () => {
     setCallStatus(CallStatus.INACTIVE); // Set to INACTIVE on manual disconnect
     vapi.stop();
+    if (currentInterviewId) {
+        console.log(`Manually ending interview. Navigating to feedback page: /feedback/${currentInterviewId}`);
+        router.push(`/feedback/${currentInterviewId}`);
+    } else {
+        console.warn("Call ended, but currentInterviewId is missing. Navigating to home.");
+        router.push("/");
+    }
   };
 
   // --- JSX Rendering ---
   return (
     <div className="relative flex flex-col justify-center items-center min-h-screen overflow-hidden bg-gradient-to-br from-black via-slate-900 to-blue-950 text-white">
-      {/* Background and Decorative elements */}
       <div className="flex flex-col justify-center items-center gap-5 w-full h-screen">
         {/* AI & User Row */}
         <div className="flex justify-center items-center gap-8">
-          {/* AI Interviewer Card */}
           <motion.div
             className="relative flex flex-col items-center justify-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 w-[260px] h-[230px] text-center shadow-[0_0_40px_rgba(0,255,255,0.15)] hover:shadow-[0_0_60px_rgba(0,255,255,0.3)] transition-all duration-500"
             initial={{ opacity: 0, y: 30 }}
@@ -232,7 +240,6 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
             </p>
           </motion.div>
 
-          {/* User Card */}
           <motion.div
             className="relative flex flex-col items-center justify-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 w-[260px] h-[230px] text-center shadow-[0_0_40px_rgba(0,255,255,0.15)] hover:shadow-[0_0_60px_rgba(0,255,255,0.3)] transition-all duration-500"
             initial={{ opacity: 0, y: 40 }}
@@ -255,7 +262,6 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
           </motion.div>
         </div>
 
-        {/* Message Box */}
         {lastMessage && (
           <motion.div
             className="mt-3 w-[85%] max-w-2xl bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 shadow-xl text-center"
@@ -267,7 +273,6 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
           </motion.div>
         )}
 
-        {/* Control Buttons */}
         <div className="flex gap-6 mt-3">
           {callStatus !== CallStatus.ACTIVE ? (
             <motion.button
