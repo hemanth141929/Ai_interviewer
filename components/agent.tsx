@@ -292,7 +292,7 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
               whileTap={{ scale: 0.95 }}
               className="relative px-8 py-2 font-bold text-base rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-[0_0_40px_rgba(255,100,100,0.3)] hover:shadow-[0_0_70px_rgba(255,100,100,0.5)] transition-all duration-500"
             >
-              End
+              End & Analyze
               <span className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 blur-lg opacity-40 -z-10 animate-pulse"></span>
             </motion.button>
           )}
